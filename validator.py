@@ -4,7 +4,7 @@ import random
 import argparse
 import traceback
 import bittensor as bt
-from bittensor.utils.weight_utils import convert_weights_and_uids_for_emit
+# from bittensor.utils.weight_utils import convert_weights_and_uids_for_emit
 
 from protocol import Dummy
 
@@ -142,8 +142,8 @@ class Validator:
                     weights = [w / weight_sum for w in weights]
 
 
-                    emitted_uids, emitted_weights = convert_weights_and_uids_for_emit(self.metagraph.uids, weights)
-                    bt.logging.info(f"Setting weights: {weights}, emitted_uids: {emitted_uids}, emitted_weights: {emitted_weights}")
+                    # emitted_uids, emitted_weights = convert_weights_and_uids_for_emit(self.metagraph.uids, weights)
+                    # bt.logging.info(f"Setting weights: {weights}, emitted_uids: {emitted_uids}, emitted_weights: {emitted_weights}")
                     
                     # Update the incentive mechanism on the Bittensor blockchain.
                     result, message = self.subtensor.set_weights(
