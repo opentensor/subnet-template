@@ -1,8 +1,10 @@
 import os
+import time
 import random
 import argparse
 import traceback
 import bittensor as bt
+from bittensor.utils.weight_utils import convert_weights_and_uids_for_emit
 
 from protocol import Dummy
 
@@ -95,6 +97,7 @@ class Validator:
             try:
                 # Create a synapse with the current step value.
                 synapse = Dummy(dummy_input=random.randint(0, 100))
+                time.sleep(5)
 
                 # Broadcast a query to all miners on the network.
                 responses = self.dendrite.query(
@@ -109,6 +112,11 @@ class Validator:
                 # Log the results.
                 bt.logging.info(f"Received dummy responses: {responses}")
 
+                # Adjust the length of moving_avg_scores to match the number of responses
+                if len(self.moving_avg_scores) < len(responses):
+                    # Append a score of 1 for new miners
+                    self.moving_avg_scores.extend([1] * (len(responses) - len(self.moving_avg_scores)))
+
                 # Adjust the scores based on responses from miners and update moving average.
                 for i, resp_i in enumerate(responses):
                     current_score = 1 if resp_i == synapse.dummy_input * 2 else 0
@@ -116,20 +124,40 @@ class Validator:
 
                 bt.logging.info(f"Moving Average Scores: {self.moving_avg_scores}")
                 self.last_update = self.subtensor.blocks_since_last_update(self.config.netuid, self.my_uid)
+                drand_pulse = self.subtensor.last_drand_round()
 
-                # set weights once every tempo + 1
-                if self.last_update > self.tempo + 1:
+
+                bt.logging.info(f"Last update: {self.last_update}, next update: {self.tempo/2}, tempo: {self.tempo}, current_drand: {drand_pulse}")
+                
+                # set weights twice each tempo
+                if self.last_update > self.tempo/2:
                     total = sum(self.moving_avg_scores)
-                    weights = [score / total for score in self.moving_avg_scores]
-                    bt.logging.info(f"Setting weights: {weights}")
+                    weights = [(score / total) + random.uniform(-0.06, 0.06) for score in self.moving_avg_scores]
+
+                    # Clamp weights to [0, 1]
+                    weights = [max(0, min(w, 1)) for w in weights]
+
+                    # Normalize weights to ensure they sum to 1
+                    weight_sum = sum(weights)
+                    weights = [w / weight_sum for w in weights]
+
+
+                    emitted_uids, emitted_weights = convert_weights_and_uids_for_emit(self.metagraph.uids, weights)
+                    bt.logging.info(f"Setting weights: {weights}, emitted_uids: {emitted_uids}, emitted_weights: {emitted_weights}")
+                    
                     # Update the incentive mechanism on the Bittensor blockchain.
-                    result = self.subtensor.set_weights(
+                    result, message = self.subtensor.set_weights(
                         netuid=self.config.netuid,
                         wallet=self.wallet,
                         uids=self.metagraph.uids,
                         weights=weights,
-                        wait_for_inclusion=True
+                        wait_for_inclusion=True, 
+                        wait_for_finalization=True
                     )
+                    
+                    if result:
+                        bt.logging.info(f"Successfully committed weights with: {message}")
+
                     self.metagraph.sync()
 
             except RuntimeError as e:
