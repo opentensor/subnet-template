@@ -155,6 +155,9 @@ class Validator:
                         uids=self.metagraph.uids,
                         weights=weights,
                         wait_for_inclusion=True,
+                        era={
+                            "period": 144,
+                        },
                     )
                     self.metagraph.sync()
                 time.sleep(5)
