@@ -14,12 +14,12 @@ class Validator:
         self.setup_logging()
         self.setup_bittensor_objects()
         self.my_uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
-        self.scores = [1.0] * len(self.metagraph.S)
+        self.scores = [0] * len(self.metagraph.S)
         self.last_update = self.subtensor.blocks_since_last_update(
             self.config.netuid, self.my_uid
         )
         self.tempo = self.subtensor.tempo(self.config.netuid)
-        self.moving_avg_scores = [1.0] * len(self.metagraph.S)
+        self.moving_avg_scores = [0] * len(self.metagraph.S)
         self.alpha = 0.1
 
     def get_config(self):
@@ -99,7 +99,7 @@ class Validator:
 
         # Set up initial scoring weights for validation.
         bt.logging.info("Building validation weights.")
-        self.scores = [1.0] * len(self.metagraph.S)
+        self.scores = [0] * len(self.metagraph.S)
         bt.logging.info(f"Weights: {self.scores}")
 
     def run(self):
@@ -116,28 +116,33 @@ class Validator:
                     axons=self.metagraph.axons, synapse=synapse, timeout=12
                 )
                 bt.logging.info(f"sending input {synapse.dummy_input}")
-                if responses:
-                    responses = [
-                        response.dummy_output
-                        for response in responses
-                        if response is not None
-                    ]
-
+                
                 # Log the results.
-                bt.logging.info(f"Received dummy responses: {responses}")
+                bt.logging.info(f"Received responses: {responses}")
 
-                # Adjust the length of moving_avg_scores to match the number of responses
-                if len(self.moving_avg_scores) < len(responses):
-                    self.moving_avg_scores.extend(
-                        [1] * (len(responses) - len(self.moving_avg_scores))
-                    )
-
-                # Adjust the scores based on responses from miners and update moving average.
-                for i, resp_i in enumerate(responses):
-                    current_score = 1 if resp_i == synapse.dummy_input * 2 else 0
-                    self.moving_avg_scores[i] = (
-                        1 - self.alpha
-                    ) * self.moving_avg_scores[i] + self.alpha * current_score
+                # Filter successful responses for logging
+                successful_responses = [
+                    response.dummy_output
+                    for response in responses
+                    if response is not None
+                ]
+                bt.logging.info(f"Successful responses: {successful_responses}")
+                
+                # Score all miners based on their responses
+                for i, response in enumerate(responses):
+                    if response is not None:
+                        # Miner responded - score based on correctness
+                        current_score = 1 if response.dummy_output == synapse.dummy_input * 2 else 0
+                        self.moving_avg_scores[i] = (
+                            (1 - self.alpha) * self.moving_avg_scores[i] + 
+                            self.alpha * current_score
+                        )
+                    else:
+                        # Miner didn't respond - set score to 0
+                        self.moving_avg_scores[i] = (
+                            (1 - self.alpha) * self.moving_avg_scores[i] + 
+                            self.alpha * 0
+                        )
 
                 bt.logging.info(f"Moving Average Scores: {self.moving_avg_scores}")
                 self.last_update = self.subtensor.blocks_since_last_update(
@@ -146,7 +151,11 @@ class Validator:
 
                 # set weights once every tempo
                 total = sum(self.moving_avg_scores)
-                weights = [score / total for score in self.moving_avg_scores]
+                if total > 0:
+                    weights = [score / total for score in self.moving_avg_scores]
+                else:
+                    # If no miners responded, set zero weights
+                    weights = [0.0] * len(self.moving_avg_scores)
                 bt.logging.info(f"[blue]Setting weights: {weights}[/blue]")
                 # Update the incentive mechanism on the Bittensor blockchain.
                 self.subtensor.set_weights(
