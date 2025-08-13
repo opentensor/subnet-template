@@ -100,7 +100,8 @@ class Validator:
         # Set up initial scoring weights for validation.
         bt.logging.info("Building validation weights.")
         self.scores = [0] * len(self.metagraph.S)
-        bt.logging.info(f"Weights: {self.scores}")
+        weights_with_uids = [(int(self.metagraph.uids[i]), score) for i, score in enumerate(self.scores)]
+        bt.logging.info(f"Weights (uid, weight): {weights_with_uids}")
 
     def run(self):
         # The Main Validation Loop.
@@ -120,13 +121,12 @@ class Validator:
                 # Log the results.
                 bt.logging.info(f"Received responses: {responses}")
 
-                # Filter successful responses for logging
-                successful_responses = [
-                    response.dummy_output
-                    for response in responses
-                    if response is not None
-                ]
-                bt.logging.info(f"Successful responses: {successful_responses}")
+                # Filter successful responses for logging with UIDs
+                successful_responses_with_uids = []
+                for i, response in enumerate(responses):
+                    if response is not None:
+                        successful_responses_with_uids.append((int(self.metagraph.uids[i]), response.dummy_output))
+                bt.logging.info(f"Successful responses (uid, response): {successful_responses_with_uids}")
                 
                 # Score all miners based on their responses
                 for i, response in enumerate(responses):
@@ -144,7 +144,9 @@ class Validator:
                             self.alpha * 0
                         )
 
-                bt.logging.info(f"Moving Average Scores: {self.moving_avg_scores}")
+                # Create list of (uid, score) tuples
+                scores_with_uids = [(int(self.metagraph.uids[i]), score) for i, score in enumerate(self.moving_avg_scores)]
+                bt.logging.info(f"Moving Average Scores (uid, score): {scores_with_uids}")
                 self.last_update = self.subtensor.blocks_since_last_update(
                     self.config.netuid, self.my_uid
                 )
@@ -156,7 +158,9 @@ class Validator:
                 else:
                     # If no miners responded, set zero weights
                     weights = [0.0] * len(self.moving_avg_scores)
-                bt.logging.info(f"[blue]Setting weights: {weights}[/blue]")
+                # Create list of (uid, weight) tuples
+                weights_with_uids = [(int(self.metagraph.uids[i]), weight) for i, weight in enumerate(weights)]
+                bt.logging.info(f"[blue]Setting weights (uid, weight): {weights_with_uids}[/blue]")
                 # Update the incentive mechanism on the Bittensor blockchain.
                 self.subtensor.set_weights(
                     netuid=self.config.netuid,
