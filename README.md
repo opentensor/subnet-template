@@ -1,4 +1,3 @@
-
 # Bittensor Subnet Template
 
 This repository provides a minimal template for setting up a simple Bittensor subnet with a miner and a validator. The miner and validator communicate using a custom protocol defined in `protocol.py`. This template serves as a starting point for developers interested in building on the Bittensor network.
@@ -57,13 +56,15 @@ Before you begin, ensure you have the following installed:
 
 ## Setup Instructions
 
-### 1. Clone the Repository
+### 1. Fork and clone the Repository
 
-Clone this repository to your local machine:
+Fork the [subnet template](https://github.com/opentensor/subnet-template) repository to create a copy of the repository under your GitHub account.
+
+Next, clone this repository to your local machine and change directory ask shown:
 
 ```bash
-git clone https://github.com/yourusername/bittensor_subnet.git
-cd bittensor_subnet
+git clone https://github.com/YOUR_USERNAME/subnet_template.git
+cd subnet_template
 ```
 
 ### 2. Install Dependencies
@@ -111,61 +112,57 @@ Register both the miner and validator on the Bittensor network.
 - **Register the Miner**:
 
   ```bash
-  btcli s register --wallet.name mywallet --wallet.hotkey miner_hotkey --subtensor.network finney
+  btcli s register --wallet.name mywallet --wallet.hotkey miner_hotkey --subtensor.network NETWORK
   ```
 
 - **Register the Validator**:
 
   ```bash
-  btcli s register --wallet.name mywallet --wallet.hotkey validator_hotkey --subtensor.network finney
+  btcli s register --wallet.name mywallet --wallet.hotkey validator_hotkey --subtensor.network NETWORK
   ```
 
-> **Note**: Replace `finney` with the name of the network you are connecting to if different.
+> **Note**: Replace `NETWORK` with the name of the network you are connecting to if different.
 
 ---
 
 ## Running the Miner and Validator
 
-### Running the Miner
+### Start the miner process
 
-In one terminal window, navigate to the project directory and run:
+To start the miner, run the following Python script in the `subnet-template` directory:
 
-```bash
-python miner.py --wallet.name mywallet --wallet.hotkey miner_hotkey --subtensor.network finney --axon.port 8901
+```sh
+python miner.py --wallet.name WALLET_NAME --wallet.hotkey HOTKEY --netuid NETUID --axon.port 8901 --subtensor.network NETWORK
 ```
 
-**Arguments**:
+The script launches an Axon server on port `8901`, which the miner uses to receive incoming requests from validators.
 
-- `--wallet.name`: The name of the wallet.
-- `--wallet.hotkey`: The hotkey name for the miner.
-- `--subtensor.network`: The Bittensor network to connect to.
+### Start the validator process
 
-### Running the Validator
+To start the validator process, run the following Python script in the `subnet-template` directory:
 
-In another terminal window, navigate to the project directory and run:
-
-```bash
-python validator.py --wallet.name mywallet --wallet.hotkey validator_hotkey --subtensor.network finney
+```sh
+python validator.py --wallet.name WALLET_NAME --wallet.hotkey HOTKEY --netuid NETUID --subtensor.network NETWORK
 ```
+
+This script begins the process of sending inputs to the miners and setting weights based on miner responses.
 
 **Arguments**:
 
 - `--wallet.name`: The name of the wallet.
 - `--wallet.hotkey`: The hotkey name for the validator.
+- `--netuid`: The uid of the subnet in the network.
 - `--subtensor.network`: The Bittensor network to connect to.
 
 ---
 
 ## Monitoring and Logging
 
-Both the miner and validator will output logs to the console and save logs to files in the following directory structure:
+Use the `--logging.info` flag to print miner and validator log messages directly to the console. This helps you monitor activity in real time. For example
 
+```sh
+python validator.py --wallet.name WALLET_NAME --wallet.hotkey HOTKEY --netuid NETUID --subtensor.network NETWORK --logging.info
 ```
-~/.bittensor/wallets/<wallet.name>/<wallet.hotkey>/netuid<netuid>/<miner or validator>/
-```
-
-- **Miner Logs**: Located in the `miner` directory.
-- **Validator Logs**: Located in the `validator` directory.
 
 You can monitor these logs to observe the interactions and performance metrics.
 
@@ -203,7 +200,7 @@ else:
 
 ### Changing Network Parameters
 
-You can adjust network parameters like `netuid`, timeouts, and other settings via command-line arguments or by modifying the code.
+You can adjust network parameters like `netuid`, timeouts, and other settings via command-line arguments or by modifying the code in the `miner.py` and `validator.py`.
 
 ---
 
