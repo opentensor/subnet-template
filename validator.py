@@ -118,8 +118,23 @@ class Validator:
                 )
                 bt.logging.info(f"sending input {synapse.dummy_input}")
                 
-                # Log the results.
-                bt.logging.info(f"Received responses: {responses}")
+                # Log the results with UIDs showing input and output
+                responses_with_uids = []
+                for i, response in enumerate(responses):
+                    uid = int(self.metagraph.uids[i])
+                    if response is not None and response.dummy_output is not None:
+                        responses_with_uids.append({
+                            'uid': uid,
+                            'input': response.dummy_input,
+                            'output': response.dummy_output
+                        })
+                    else:
+                        responses_with_uids.append({
+                            'uid': uid,
+                            'input': synapse.dummy_input,
+                            'output': None
+                        })
+                bt.logging.info(f"Received responses: {responses_with_uids}")
 
                 # Filter successful responses for logging with UIDs
                 successful_responses_with_uids = []
