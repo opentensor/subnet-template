@@ -56,13 +56,15 @@ Before you begin, ensure you have the following installed:
 
 ## Setup Instructions
 
-### 1. Clone the Repository
+### 1. Fork and clone the Repository
 
-Clone this repository to your local machine:
+Fork the [subnet template](https://github.com/opentensor/subnet-template) repository to create a copy of the repository under your GitHub account.
+
+Next, clone this repository to your local machine and change directory ask shown:
 
 ```bash
-git clone https://github.com/opentensor/subnet-template.git
-cd subnet-template
+git clone https://github.com/YOUR_USERNAME/subnet_template.git
+cd subnet_template
 ```
 
 ### 2. Install Dependencies
