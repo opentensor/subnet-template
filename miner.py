@@ -1,15 +1,26 @@
+import argparse
 import os
 import time
-import argparse
 import traceback
-import bittensor as bt
 from typing import Tuple
+
+from bittensor.core.axon import Axon
+from bittensor.core.config import Config
+from bittensor.core.subtensor import Subtensor
+from bittensor.utils.btlogging import logging
+from bittensor_wallet import Wallet
 
 from protocol import Dummy
 
 
 class Miner:
     def __init__(self):
+        self.subtensor = None
+        self.wallet = None
+        self.metagraph = None
+        self.axon = None
+        self.my_subnet_uid = None
+
         self.config = self.get_config()
         self.setup_logging()
         self.setup_bittensor_objects()
@@ -28,15 +39,15 @@ class Miner:
             "--netuid", type=int, default=1, help="The chain subnet uid."
         )
         # Adds subtensor specific arguments.
-        bt.subtensor.add_args(parser)
+        Subtensor.add_args(parser)
         # Adds logging specific arguments.
-        bt.logging.add_args(parser)
+        logging.add_args(parser)
         # Adds wallet specific arguments.
-        bt.wallet.add_args(parser)
+        Wallet.add_args(parser)
         # Adds axon specific arguments.
-        bt.axon.add_args(parser)
+        Axon.add_args(parser)
         # Parse the arguments.
-        config = bt.config(parser)
+        config = Config(parser)
         # Set up logging directory
         config.full_path = os.path.expanduser(
             "{}/{}/{}/netuid{}/{}".format(
@@ -53,30 +64,30 @@ class Miner:
 
     def setup_logging(self):
         # Activate Bittensor's logging with the set configurations.
-        bt.logging(config=self.config, logging_dir=self.config.full_path)
-        bt.logging.info(
+        logging(config=self.config, logging_dir=self.config.full_path)
+        logging.info(
             f"Running miner for subnet: {self.config.netuid} on network: {self.config.subtensor.network} with config:"
         )
-        bt.logging.info(self.config)
+        logging.info(self.config)
 
     def setup_bittensor_objects(self):
         # Initialize Bittensor miner objects
-        bt.logging.info("Setting up Bittensor objects.")
+        logging.info("Setting up Bittensor objects.")
 
         # Initialize wallet.
-        self.wallet = bt.wallet(config=self.config)
-        bt.logging.info(f"Wallet: {self.wallet}")
+        self.wallet = Wallet(config=self.config)
+        logging.info(f"Wallet: {self.wallet}")
 
         # Initialize subtensor.
-        self.subtensor = bt.subtensor(config=self.config)
-        bt.logging.info(f"Subtensor: {self.subtensor}")
+        self.subtensor = Subtensor(config=self.config)
+        logging.info(f"Subtensor: {self.subtensor}")
 
         # Initialize metagraph.
         self.metagraph = self.subtensor.metagraph(self.config.netuid)
-        bt.logging.info(f"Metagraph: {self.metagraph}")
+        logging.info(f"Metagraph: {self.metagraph}")
 
         if self.wallet.hotkey.ss58_address not in self.metagraph.hotkeys:
-            bt.logging.error(
+            logging.error(
                 f"\nYour miner: {self.wallet} is not registered to chain connection: {self.subtensor} \nRun 'btcli register' and try again."
             )
             exit()
@@ -85,16 +96,16 @@ class Miner:
             self.my_subnet_uid = self.metagraph.hotkeys.index(
                 self.wallet.hotkey.ss58_address
             )
-            bt.logging.info(f"Running miner on uid: {self.my_subnet_uid}")
+            logging.info(f"Running miner on uid: {self.my_subnet_uid}")
 
     def blacklist_fn(self, synapse: Dummy) -> Tuple[bool, str]:
         # Ignore requests from unrecognized entities.
         if synapse.dendrite.hotkey not in self.metagraph.hotkeys:
-            bt.logging.trace(
+            logging.trace(
                 f"Blacklisting unrecognized hotkey {synapse.dendrite.hotkey}"
             )
             return True, None
-        bt.logging.trace(
+        logging.trace(
             f"Not blacklisting recognized hotkey {synapse.dendrite.hotkey}"
         )
         return False, None
@@ -102,38 +113,38 @@ class Miner:
     def dummy(self, synapse: Dummy) -> Dummy:
         # Simple logic: return the input value multiplied by 2.
         synapse.dummy_output = synapse.dummy_input * 2
-        bt.logging.info(
+        logging.info(
             f"Received input: {synapse.dummy_input}, sending output: {synapse.dummy_output}"
         )
         return synapse
 
     def setup_axon(self):
         # Build and link miner functions to the axon.
-        self.axon = bt.axon(wallet=self.wallet, config=self.config)
+        self.axon = Axon(wallet=self.wallet, config=self.config)
 
         # Attach functions to the axon.
-        bt.logging.info("Attaching forward function to axon.")
+        logging.info("Attaching forward function to axon.")
         self.axon.attach(
             forward_fn=self.dummy,
             blacklist_fn=self.blacklist_fn,
         )
 
         # Serve the axon.
-        bt.logging.info(
+        logging.info(
             f"Serving axon on network: {self.config.subtensor.network} with netuid: {self.config.netuid}"
         )
         self.axon.serve(netuid=self.config.netuid, subtensor=self.subtensor)
-        bt.logging.info(f"Axon: {self.axon}")
+        logging.info(f"Axon: {self.axon}")
 
         # Start the axon server.
-        bt.logging.info(f"Starting axon server on port: {self.config.axon.port}")
+        logging.info(f"Starting axon server on port: {self.config.axon.port}")
         self.axon.start()
 
     def run(self):
         self.setup_axon()
 
         # Keep the miner alive.
-        bt.logging.info(f"Starting main loop")
+        logging.info(f"Starting main loop")
         step = 0
         while True:
             try:
@@ -144,16 +155,16 @@ class Miner:
                         f"Block: {self.metagraph.block.item()} | "
                         f"Incentive: {self.metagraph.I[self.my_subnet_uid]} | "
                     )
-                    bt.logging.info(log)
+                    logging.info(log)
                 step += 1
                 time.sleep(1)
 
             except KeyboardInterrupt:
                 self.axon.stop()
-                bt.logging.success("Miner killed by keyboard interrupt.")
+                logging.success("Miner killed by keyboard interrupt.")
                 break
-            except Exception as e:
-                bt.logging.error(traceback.format_exc())
+            except Exception:
+                logging.error(traceback.format_exc())
                 continue
 
 
