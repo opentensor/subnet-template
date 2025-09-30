@@ -2,7 +2,6 @@ import argparse
 import os
 import time
 import traceback
-from typing import Tuple
 
 from bittensor.core.axon import Axon
 from bittensor.core.config import Config
@@ -98,7 +97,7 @@ class Miner:
             )
             logging.info(f"Running miner on uid: {self.my_subnet_uid}")
 
-    def blacklist_fn(self, synapse: Dummy) -> Tuple[bool, str]:
+    def blacklist_fn(self, synapse: Dummy) -> tuple[bool, str]:
         # Ignore requests from unrecognized entities.
         if synapse.dendrite.hotkey not in self.metagraph.hotkeys:
             logging.trace(

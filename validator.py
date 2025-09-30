@@ -1,9 +1,14 @@
-import os
-import time
-import random
 import argparse
+import os
+import random
+import time
 import traceback
-import bittensor as bt
+
+from bittensor.core.config import Config
+from bittensor.core.dendrite import Dendrite
+from bittensor.core.subtensor import Subtensor
+from bittensor.utils.btlogging import logging
+from bittensor_wallet import Wallet
 
 from protocol import Dummy
 
@@ -36,13 +41,13 @@ class Validator:
             "--netuid", type=int, default=1, help="The chain subnet uid."
         )
         # Adds subtensor specific arguments.
-        bt.subtensor.add_args(parser)
+        Subtensor.add_args(parser)
         # Adds logging specific arguments.
-        bt.logging.add_args(parser)
+        logging.add_args(parser)
         # Adds wallet specific arguments.
-        bt.wallet.add_args(parser)
+        Wallet.add_args(parser)
         # Parse the config.
-        config = bt.config(parser)
+        config = Config(parser)
         # Set up logging directory.
         config.full_path = os.path.expanduser(
             "{}/{}/{}/netuid{}/validator".format(
@@ -58,35 +63,35 @@ class Validator:
 
     def setup_logging(self):
         # Set up logging.
-        bt.logging(config=self.config, logging_dir=self.config.full_path)
-        bt.logging.info(
+        logging(config=self.config, logging_dir=self.config.full_path)
+        logging.info(
             f"Running validator for subnet: {self.config.netuid} on network: {self.config.subtensor.network} with config:"
         )
-        bt.logging.info(self.config)
+        logging.info(self.config)
 
     def setup_bittensor_objects(self):
         # Build Bittensor validator objects.
-        bt.logging.info("Setting up Bittensor objects.")
+        logging.info("Setting up Bittensor objects.")
 
         # Initialize wallet.
-        self.wallet = bt.wallet(config=self.config)
-        bt.logging.info(f"Wallet: {self.wallet}")
+        self.wallet = Wallet(config=self.config)
+        logging.info(f"Wallet: {self.wallet}")
 
         # Initialize subtensor.
-        self.subtensor = bt.subtensor(config=self.config)
-        bt.logging.info(f"Subtensor: {self.subtensor}")
+        self.subtensor = Subtensor(config=self.config)
+        logging.info(f"Subtensor: {self.subtensor}")
 
         # Initialize dendrite.
-        self.dendrite = bt.dendrite(wallet=self.wallet)
-        bt.logging.info(f"Dendrite: {self.dendrite}")
+        self.dendrite = Dendrite(wallet=self.wallet)
+        logging.info(f"Dendrite: {self.dendrite}")
 
         # Initialize metagraph.
         self.metagraph = self.subtensor.metagraph(self.config.netuid)
-        bt.logging.info(f"Metagraph: {self.metagraph}")
+        logging.info(f"Metagraph: {self.metagraph}")
 
         # Connect the validator to the network.
         if self.wallet.hotkey.ss58_address not in self.metagraph.hotkeys:
-            bt.logging.error(
+            logging.error(
                 f"Your validator: {self.wallet} is not registered to chain connection: {self.subtensor} \nRun 'btcli register' and try again."
             )
             exit()
@@ -95,16 +100,16 @@ class Validator:
             self.my_subnet_uid = self.metagraph.hotkeys.index(
                 self.wallet.hotkey.ss58_address
             )
-            bt.logging.info(f"Running validator on uid: {self.my_subnet_uid}")
+            logging.info(f"Running validator on uid: {self.my_subnet_uid}")
 
         # Set up initial scoring weights for validation.
-        bt.logging.info("Building validation weights.")
+        logging.info("Building validation weights.")
         self.scores = [1.0] * len(self.metagraph.S)
-        bt.logging.info(f"Weights: {self.scores}")
+        logging.info(f"Weights: {self.scores}")
 
     def run(self):
         # The Main Validation Loop.
-        bt.logging.info("Starting validator loop.")
+        logging.info("Starting validator loop.")
         while True:
             try:
                 # time.sleep(int(self.subtensor.tempo(self.config.netuid) * 0.25))
@@ -115,7 +120,7 @@ class Validator:
                 responses = self.dendrite.query(
                     axons=self.metagraph.axons, synapse=synapse, timeout=12
                 )
-                bt.logging.info(f"sending input {synapse.dummy_input}")
+                logging.info(f"sending input {synapse.dummy_input}")
                 if responses:
                     responses = [
                         response.dummy_output
@@ -124,7 +129,7 @@ class Validator:
                     ]
 
                 # Log the results.
-                bt.logging.info(f"Received dummy responses: {responses}")
+                logging.info(f"Received dummy responses: {responses}")
 
                 # Adjust the length of moving_avg_scores to match the number of responses
                 if len(self.moving_avg_scores) < len(responses):
@@ -139,7 +144,7 @@ class Validator:
                         1 - self.alpha
                     ) * self.moving_avg_scores[i] + self.alpha * current_score
 
-                bt.logging.info(f"Moving Average Scores: {self.moving_avg_scores}")
+                logging.info(f"Moving Average Scores: {self.moving_avg_scores}")
                 self.last_update = self.subtensor.blocks_since_last_update(
                     self.config.netuid, self.my_uid
                 )
@@ -147,7 +152,7 @@ class Validator:
                 # set weights once every tempo
                 total = sum(self.moving_avg_scores)
                 weights = [score / total for score in self.moving_avg_scores]
-                bt.logging.info(f"[blue]Setting weights: {weights}[/blue]")
+                logging.info(f"[blue]Setting weights: {weights}[/blue]")
                 # Update the incentive mechanism on the Bittensor blockchain.
                 self.subtensor.set_weights(
                     netuid=self.config.netuid,
@@ -162,11 +167,11 @@ class Validator:
                 time.sleep((((self.subtensor.block // self.tempo) + 1) * self.tempo) + 1)
 
             except RuntimeError as e:
-                bt.logging.error(e)
+                logging.error(e)
                 traceback.print_exc()
 
             except KeyboardInterrupt:
-                bt.logging.success("Keyboard interrupt detected. Exiting validator.")
+                logging.success("Keyboard interrupt detected. Exiting validator.")
                 exit()
 
 
