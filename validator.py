@@ -53,7 +53,7 @@ class Validator:
             "{}/{}/{}/netuid{}/validator".format(
                 config.logging.logging_dir,
                 config.wallet.name,
-                config.wallet.hotkey_str,
+                config.wallet.hotkey,
                 config.netuid,
             )
         )
