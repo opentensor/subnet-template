@@ -1,4 +1,3 @@
-
 # Bittensor Subnet Template
 
 This repository provides a minimal template for setting up a simple Bittensor subnet with a miner and a validator. The miner and validator communicate using a custom protocol defined in `protocol.py`. This template serves as a starting point for developers interested in building on the Bittensor network.
@@ -53,17 +52,22 @@ Before you begin, ensure you have the following installed:
 
 - Python 3.10 or higher
 - [Git](https://git-scm.com/)
-- [Bittensor SDK](https://github.com/opentensor/bittensor)
+- [Bittensor SDK](https://github.com/opentensor/bittensor) (version 10 or higher)
+- An active subnet on Bittensor testnet or local chain instance. For more information, see [create a new subnet](https://docs.learnbittensor.org/subnets/create-a-subnet#creating-a-subnet-on-testchain)
+
+> **Note**: To create a local blockchain instance, see [Run a Local Bittensor Blockchain Instance](https://docs.learnbittensor.org/local-build/deploy#prerequisites).
 
 ## Setup Instructions
 
-### 1. Clone the Repository
+### 1. Fork and clone the Repository
 
-Clone this repository to your local machine:
+Fork the [subnet template](https://github.com/opentensor/subnet-template) repository to create a copy of the repository under your GitHub account.
+
+Next, clone this repository to your local machine and change directory ask shown:
 
 ```bash
-git clone https://github.com/yourusername/bittensor_subnet.git
-cd bittensor_subnet
+git clone https://github.com/YOUR_USERNAME/subnet_template.git
+cd subnet_template
 ```
 
 ### 2. Install Dependencies
@@ -91,7 +95,6 @@ The `btcli` tool is used to manage wallets and keys.
    ```
 
 2. **Create Hotkeys**:
-
    - **Miner Hotkey**:
 
      ```bash
@@ -106,66 +109,71 @@ The `btcli` tool is used to manage wallets and keys.
 
 ### 4. Register Wallets
 
-Register both the miner and validator on the Bittensor network.
+Register both the miner and validator on the active Bittensor subnet.
+
+> **Note**: Ensure your miner and validator wallets are sufficiently funded before attempting subnet registration.
+>
+> - For local development, transfer funds from the Alice account.
+> - For testnet development, you can request testnet TAO from the [Bittensor Discord](https://discord.com/channels/799672011265015819/1107738550373454028/threads/1331693251589312553).
 
 - **Register the Miner**:
 
   ```bash
-  btcli s register --wallet.name mywallet --wallet.hotkey miner_hotkey --subtensor.network finney
+  btcli s register --wallet.name mywallet --wallet.hotkey miner_hotkey --subtensor.network NETWORK --netuid NETUID
   ```
 
 - **Register the Validator**:
 
   ```bash
-  btcli s register --wallet.name mywallet --wallet.hotkey validator_hotkey --subtensor.network finney
+  btcli s register --wallet.name mywallet --wallet.hotkey validator_hotkey --subtensor.network NETWORK --netuid NETUID
   ```
 
-> **Note**: Replace `finney` with the name of the network you are connecting to if different.
+> **Note**: Replace `NETWORK` with the name of the network you are connecting to if different—`local` or `test`.
 
 ---
 
 ## Running the Miner and Validator
 
-### Running the Miner
+### Start the miner process
 
-In one terminal window, navigate to the project directory and run:
+To start the miner, run the following Python script in the `subnet-template` directory:
 
-```bash
-python miner.py --wallet.name mywallet --wallet.hotkey miner_hotkey --subtensor.network finney --axon.port 8901
+```sh
+python miner.py --wallet.name WALLET_NAME --wallet.hotkey HOTKEY --netuid NETUID --axon.port 8901 --subtensor.network NETWORK
 ```
 
-**Arguments**:
+> **Note**: Run the `miner.py` script in a Python environment with the Bittensor SDK installed.
 
-- `--wallet.name`: The name of the wallet.
-- `--wallet.hotkey`: The hotkey name for the miner.
-- `--subtensor.network`: The Bittensor network to connect to.
+The script launches an Axon server on port `8901`, which the miner uses to receive incoming requests from validators.
 
-### Running the Validator
+### Start the validator process
 
-In another terminal window, navigate to the project directory and run:
+To start the validator process, run the following Python script in the `subnet-template` directory:
 
-```bash
-python validator.py --wallet.name mywallet --wallet.hotkey validator_hotkey --subtensor.network finney
+```sh
+python validator.py --wallet.name WALLET_NAME --wallet.hotkey HOTKEY --netuid NETUID --subtensor.network NETWORK
 ```
+
+> **Note**: Run the `validator.py` script in a Python environment with the Bittensor SDK installed.
+
+This script begins the process of sending inputs to the miners and setting weights based on miner responses.
 
 **Arguments**:
 
 - `--wallet.name`: The name of the wallet.
 - `--wallet.hotkey`: The hotkey name for the validator.
+- `--netuid`: The uid of the subnet in the network.
 - `--subtensor.network`: The Bittensor network to connect to.
 
 ---
 
 ## Monitoring and Logging
 
-Both the miner and validator will output logs to the console and save logs to files in the following directory structure:
+Use the `--logging.info` flag to print miner and validator log messages directly to the console. This helps you monitor activity in real time. For example
 
+```sh
+python validator.py --wallet.name WALLET_NAME --wallet.hotkey HOTKEY --netuid NETUID --subtensor.network NETWORK --logging.info
 ```
-~/.bittensor/wallets/<wallet.name>/<wallet.hotkey>/netuid<netuid>/<miner or validator>/
-```
-
-- **Miner Logs**: Located in the `miner` directory.
-- **Validator Logs**: Located in the `validator` directory.
 
 You can monitor these logs to observe the interactions and performance metrics.
 
@@ -203,7 +211,7 @@ else:
 
 ### Changing Network Parameters
 
-You can adjust network parameters like `netuid`, timeouts, and other settings via command-line arguments or by modifying the code.
+You can adjust network parameters like `netuid`, timeouts, and other settings via command-line arguments or by modifying the code in the `miner.py` and `validator.py`.
 
 ---
 
